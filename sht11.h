@@ -5,7 +5,7 @@
 #define SHT11_CMD_GET_HUMIDITY  0x05
 #define SHT11_CMD_GET_STATUS    0x07
 #define SHT11_CMD_SET_STATUS    0x06
-#define SHT11_CMD_SOFT_RESET    0x3c
+#define SHT11_CMD_SOFT_RESET    0x1e
 
 #define SHT11_STATUS_BATTERY_LOW        0x40
 #define SHT11_STATUS_HEATER             0x04
