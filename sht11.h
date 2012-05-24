@@ -19,6 +19,5 @@ void sht11_hard_reset(void);
 
 unsigned char sht11_send_byte(unsigned char cmd);
 unsigned char sht11_wait_ready(void);
-unsigned char sht11_read_byte(unsigned char ack);
-unsigned int sht11_read_word(unsigned char ack);
+unsigned int sht11_read_word(void);
 #endif
