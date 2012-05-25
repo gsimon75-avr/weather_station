@@ -11,18 +11,24 @@
 //#define HWTEST    1
 //#define SHT11TEST   1
 
-const unsigned char userchars[] =
+const uint8_t userchars[] =
 {
-    0x10,  0x10,  0x10,  0x10,  0x10,  0x10,  0x10,  0x10, 
-    0x04,  0x04,  0x04,  0x04,  0x04,  0x04,  0x04,  0x04, 
-    0x01,  0x01,  0x01,  0x01,  0x01,  0x01,  0x01,  0x01, 
+    0x1f,  0x00,  0x00,  0x00,  0x00,  0x00,  0x00,  0x00, 
+    0x00,  0x1f,  0x00,  0x00,  0x00,  0x00,  0x00,  0x00, 
+    0x00,  0x00,  0x1f,  0x00,  0x00,  0x00,  0x00,  0x00, 
+    0x00,  0x00,  0x00,  0x1f,  0x00,  0x00,  0x00,  0x00, 
+    0x00,  0x00,  0x00,  0x00,  0x1f,  0x00,  0x00,  0x00, 
+    0x00,  0x00,  0x00,  0x00,  0x00,  0x1f,  0x00,  0x00, 
+    0x00,  0x00,  0x00,  0x00,  0x00,  0x00,  0x1f,  0x00, 
+    0x00,  0x00,  0x00,  0x00,  0x00,  0x00,  0x00,  0x1f, 
 };
 
 #define DEW_A 17.27
 #define DEW_B 237.7
 
-unsigned int SOt, SOrh;
+uint16_t SOt, SOrh;
 double t, tdew, rhlin, rhtrue, dew_gamma;
+uint8_t phase = 0;
 
 int
 lcdwrite(char c, FILE *f) {
@@ -72,6 +78,35 @@ main(void)
 
 #else
 
+void
+disp_phase(void) {
+    if (phase < 8) {
+        lcd_cmd(HD44780_CMD_SET_DDRAM_ADDR | 0x0f);
+        lcd_data(phase);
+        lcd_cmd(HD44780_CMD_SET_DDRAM_ADDR | 0x4f);
+        lcd_data(' ');
+    }
+    else if (phase < 16) {
+        lcd_cmd(HD44780_CMD_SET_DDRAM_ADDR | 0x0f);
+        lcd_data(' ');
+        lcd_cmd(HD44780_CMD_SET_DDRAM_ADDR | 0x4f);
+        lcd_data(phase - 8);
+    }
+    else if (phase < 23) {
+        lcd_cmd(HD44780_CMD_SET_DDRAM_ADDR | 0x0f);
+        lcd_data(' ');
+        lcd_cmd(HD44780_CMD_SET_DDRAM_ADDR | 0x4f);
+        lcd_data(22 - phase);
+    }
+    else if (phase < 30) {
+        lcd_cmd(HD44780_CMD_SET_DDRAM_ADDR | 0x0f);
+        lcd_data(30 - phase);
+        lcd_cmd(HD44780_CMD_SET_DDRAM_ADDR | 0x4f);
+        lcd_data(' ');
+    }
+    phase = (phase + 1) % 30;
+}
+
 int
 main(void)
 {
@@ -116,6 +151,7 @@ main(void)
         lcd_cmd(HD44780_CMD_SET_DDRAM_ADDR | 0x40);
         printf("dew: %3.2f\xdf""C", tdew);
 #endif
+        disp_phase();
     }
     return(0);
 }
