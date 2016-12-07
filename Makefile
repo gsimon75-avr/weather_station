@@ -1,15 +1,13 @@
 PROJECT=humidity
 
-TOOLPATH=/cygdrive/c/Program\ Files/WinAvr
-TOOLPATHWIN="c:\\Program\ Files\\WinAvr"
-CC=$(TOOLPATH)/bin/avr-gcc
-OC=$(TOOLPATH)/bin/avr-objcopy
-AD=$(TOOLPATH)/bin/avrdude
+CC=avr-gcc
+OC=avr-objcopy
+AD=avrdude
 
-CFLAGS=-g -mmcu=at90usb162 -DF_CPU=16000000UL -Os -Wall -Wstrict-prototypes -mcall-prologues
-LDFLAGS=-g -mmcu=at90usb162 -lprintf_flt -lm -uvfprintf
+CFLAGS=-g -mmcu=atmega168 -DF_CPU=14318000UL -Os -Wall -Wstrict-prototypes -mcall-prologues -DHD44780_BIT=4
+LDFLAGS=-g -mmcu=atmega168 -lprintf_flt -lm -uvfprintf
 
-ADFLAGS=-c stk500v2 -p usb162
+ADFLAGS=-c stk500v2 -p m168 -P /dev/ttyUSB0
 OCFLAGS=-j .text -j .data -O ihex 
 
 all:		$(PROJECT).hex
@@ -28,7 +26,8 @@ install:		$(PROJECT).hex
 			    $(CC) $(CFLAGS) -c $^
 
 humidity.elf:	humidity.o lcd.o sht11.o
-			    $(CC) $(LDFLAGS) -o $@ $^ "$(TOOLPATHWIN)\\avr\\lib\\libm.a" "$(TOOLPATHWIN)\\avr\\lib\\libprintf_flt.a"
+			    $(CC) $(LDFLAGS) -o $@ $^
+#"$(TOOLPATHWIN)\\avr\\lib\\libm.a" "$(TOOLPATHWIN)\\avr\\lib\\libprintf_flt.a"
 
 %.hex:			%.elf 
 	    		$(OC) $(OCFLAGS) $^ $@

@@ -1,6 +1,7 @@
 #ifndef LCD_H
 #define LCD_H
 
+#include <stdint.h>
 /*                                  dontcare, applicable modifiers */
 #define HD44780_CMD_CLEAR_DISPLAY       0x01
 #define HD44780_CMD_CURSOR_HOME         0x02 /* 0x01 - */
@@ -27,12 +28,7 @@
 
 #define HD44780_BUSY                    0x80
 
-extern const unsigned char hexchar[];
-
 void lcd_init(void);
-void lcd_cmd(unsigned char cmd);
-void lcd_data(unsigned char n);
-
-void delay_ms(unsigned int ms);
-void lcd_debug(const unsigned char *p);
+void lcd_cmd(uint8_t cmd);
+void lcd_data(uint8_t n);
 #endif

@@ -11,8 +11,7 @@
 //#define HWTEST    1
 //#define SHT11TEST   1
 
-const uint8_t userchars[] =
-{
+const uint8_t userchars[] = {
     0x1f,  0x00,  0x00,  0x00,  0x00,  0x00,  0x00,  0x00, 
     0x00,  0x1f,  0x00,  0x00,  0x00,  0x00,  0x00,  0x00, 
     0x00,  0x00,  0x1f,  0x00,  0x00,  0x00,  0x00,  0x00, 
@@ -29,12 +28,6 @@ const uint8_t userchars[] =
 uint16_t SOt, SOrh;
 double t, tdew, rhlin, rhtrue, dew_gamma;
 uint8_t phase = 0;
-
-int
-lcdwrite(char c, FILE *f) {
-    lcd_data(c);
-    return 0;
-}
 
 void
 lcd_setup(void) {
@@ -53,24 +46,26 @@ lcd_setup(void) {
     for (i = 0; i < sizeof(userchars); i++)
         lcd_data(userchars[i]);
     lcd_cmd(HD44780_CMD_SET_DDRAM_ADDR | 0x00);
-
-    // let printf just write to the lcd :)
-    stdout = fdevopen(lcdwrite, NULL);
 }
 
 #ifdef HWTEST
 int
-main(void)
-{
-    uint32_t n = 0;
-
+main(void) {
     sei();
     lcd_init();
     lcd_setup();
 
     while (1) {
-        lcd_cmd(HD44780_CMD_SET_DDRAM_ADDR | 0x00);
-        printf("%lu", n++);
+        int i, j;
+        for (i = 0; i < 0x100; i += 0x10) {
+                lcd_cmd(HD44780_CMD_SET_DDRAM_ADDR | 0x00);
+                printf("i=0x%02x", i);
+                lcd_cmd(HD44780_CMD_SET_DDRAM_ADDR | 0x40);
+                for (j = 0; j < 0x10; ++j) {
+                    putchar(i+j);
+                }
+                _delay_ms(2000);
+        }
     }
 
     return(0);
@@ -108,8 +103,7 @@ disp_phase(void) {
 }
 
 int
-main(void)
-{
+main(void) {
     DDRD |= 0x40;
     PORTD |= 0x40;
 
@@ -118,8 +112,7 @@ main(void)
     lcd_setup();
     sht11_init();
 
-    while (1)
-    {
+    while (1) {
         PORTD ^= 0x40;
         do {
             while (sht11_send_byte(SHT11_CMD_GET_TEMP))
@@ -146,10 +139,10 @@ main(void)
         printf("h=%5u", SOrh);
 #else
         lcd_cmd(HD44780_CMD_SET_DDRAM_ADDR | 0x00);
-        printf("%3.2f\xdf""C %3.2f%%", t, rhtrue);
+        printf("%3.2f\xb2""C %3.2f%%", t, rhtrue);
 
         lcd_cmd(HD44780_CMD_SET_DDRAM_ADDR | 0x40);
-        printf("dew: %3.2f\xdf""C", tdew);
+        printf("dew: %3.2f\xb2""C", tdew);
 #endif
         disp_phase();
     }
