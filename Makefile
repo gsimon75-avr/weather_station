@@ -1,4 +1,4 @@
-PROJECT=humidity
+PROJECT=station
 
 CC=avr-gcc
 OC=avr-objcopy
@@ -12,22 +12,24 @@ OCFLAGS=-j .text -j .data -O ihex
 
 all:		$(PROJECT).hex
 
-.PHONY:			all help clean install
+.PHONY:		all help clean install
 
-all:		    $(PROJECT).hex
+all:		$(PROJECT).hex
 
 clean:
-			    rm -f *.o *.map *.elf *.hex *.out
+		rm -f *.o *.map *.elf *.hex *.out
 
-install:		$(PROJECT).hex
-			    $(AD) $(ADFLAGS) -e -U flash:w:$^
+install:	$(PROJECT).hex
+		$(AD) $(ADFLAGS) -e -U flash:w:$^
 
-%.o:			%.c 
-			    $(CC) $(CFLAGS) -c $^
+%.o:		%.c 
+		$(CC) $(CFLAGS) -c $^
 
-humidity.elf:	humidity.o lcd.o sht11.o
-			    $(CC) $(LDFLAGS) -o $@ $^
+station.elf:	station.o lcd.o sht11.o
+		$(CC) $(LDFLAGS) -o $@ $^
 #"$(TOOLPATHWIN)\\avr\\lib\\libm.a" "$(TOOLPATHWIN)\\avr\\lib\\libprintf_flt.a"
 
-%.hex:			%.elf 
-	    		$(OC) $(OCFLAGS) $^ $@
+%.hex:		%.elf 
+	    	$(OC) $(OCFLAGS) $^ $@
+
+# vim: set sw=8 ts=8 noet:
