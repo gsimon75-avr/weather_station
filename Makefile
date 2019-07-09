@@ -25,9 +25,9 @@ install:	$(PROJECT).hex
 %.o:		%.c 
 		$(CC) $(CFLAGS) -c $^
 
-station.elf:	station.o lcd.o sht11.o
-		$(CC) $(LDFLAGS) -o $@ $^
-#"$(TOOLPATHWIN)\\avr\\lib\\libm.a" "$(TOOLPATHWIN)\\avr\\lib\\libprintf_flt.a"
+station.elf:	station.o lcd.o sht11.o bt_serial.o
+		$(CC) $(LDFLAGS) -o $@ $^ -lm -lprintf_flt
+		#$(CC) $(LDFLAGS) -o $@ $^ "$(TOOLPATHWIN)\\avr\\lib\\libm.a" "$(TOOLPATHWIN)\\avr\\lib\\libprintf_flt.a"
 
 %.hex:		%.elf 
 	    	$(OC) $(OCFLAGS) $^ $@

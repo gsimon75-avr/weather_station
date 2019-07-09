@@ -7,113 +7,95 @@
 #include <math.h>
 #include "lcd.h"
 #include "sht11.h"
+#include "bt_serial.h"
 
-//#define HWTEST    1
-//#define SHT11TEST   1
+#define TIMER1_FREQ 10
 
-const uint8_t userchars[] = {
-    0x1f,  0x00,  0x00,  0x00,  0x00,  0x00,  0x00,  0x00, 
-    0x00,  0x1f,  0x00,  0x00,  0x00,  0x00,  0x00,  0x00, 
-    0x00,  0x00,  0x1f,  0x00,  0x00,  0x00,  0x00,  0x00, 
-    0x00,  0x00,  0x00,  0x1f,  0x00,  0x00,  0x00,  0x00, 
-    0x00,  0x00,  0x00,  0x00,  0x1f,  0x00,  0x00,  0x00, 
-    0x00,  0x00,  0x00,  0x00,  0x00,  0x1f,  0x00,  0x00, 
-    0x00,  0x00,  0x00,  0x00,  0x00,  0x00,  0x1f,  0x00, 
-    0x00,  0x00,  0x00,  0x00,  0x00,  0x00,  0x00,  0x1f, 
-};
+volatile uint32_t tick = 0;
+volatile uint8_t progress = 0;
+volatile uint16_t SOt, SOrh;
+double t, rhlin, rhtrue;
 
-#define DEW_A 17.27
-#define DEW_B 237.7
+char progress_char[] = { '|', '/', '-', '\\' };
 
-uint16_t SOt, SOrh;
-double t, tdew, rhlin, rhtrue, dew_gamma;
-uint8_t phase = 0;
+//uint8_t req[] = "AT+VERSION";
+
+uint8_t resp[2];
+int recvcount = 0;
+
+uint8_t sbuf[0x20];
 
 void
 lcd_setup(void) {
-    int i;
-
-    // lcd setup
     lcd_cmd(HD44780_CMD_DISPLAY_CONTROL);
     lcd_cmd(HD44780_CMD_ENTRY_MODE_SET | HD44780_INCREMENT_CURSOR);
     lcd_cmd(HD44780_CMD_SHIFT_CONTROL);
     lcd_cmd(HD44780_CMD_CLEAR_DISPLAY);
     lcd_cmd(HD44780_CMD_DISPLAY_CONTROL | HD44780_DISPLAY_ON);
-    //lcd_cmd(HD44780_CMD_DISPLAY_CONTROL | HD44780_DISPLAY_ON | HD44780_CURSOR_ON | HD44780_BLINK_ON);
-
-    // set up the progress indicator chars to 0..4
-    lcd_cmd(HD44780_CMD_SET_CGRAM_ADDR | 0x00);
-    for (i = 0; i < sizeof(userchars); i++)
-        lcd_data(userchars[i]);
-    lcd_cmd(HD44780_CMD_SET_DDRAM_ADDR | 0x00);
 }
 
-#ifdef HWTEST
+ISR(TIMER1_COMPA_vect) {
+    tick++;
+}
+
 int
-main(void) {
+main(void)
+{
     sei();
     lcd_init();
     lcd_setup();
 
-    while (1) {
-        int i, j;
-        for (i = 0; i < 0x100; i += 0x10) {
-                lcd_cmd(HD44780_CMD_SET_DDRAM_ADDR | 0x00);
-                printf("i=0x%02x", i);
-                lcd_cmd(HD44780_CMD_SET_DDRAM_ADDR | 0x40);
-                for (j = 0; j < 0x10; ++j) {
-                    putchar(i+j);
-                }
-                _delay_ms(2000);
-        }
-    }
+    // set up timer1 for a TIMER1_FREQ interrupt
+#define F_CPU_1      (F_CPU / 1)
+#define F_CPU_8      (F_CPU / 8)
+#define F_CPU_64     (F_CPU / 64)
+#define F_CPU_256    (F_CPU / 256)
+#define F_CPU_1024   (F_CPU / 1024)
 
-    return(0);
-}
-
+#if TIMER1_FREQ > F_CPU
+#   error TIMER1 > F_CPU!
+#elif TIMER1_FREQ > (F_CPU_1 / 65536)
+    TCCR1B = _BV(WGM12) | 1; // ctc mode up to OCR1A, clk = sysclk / 1
+    OCR1A = F_CPU_1 / TIMER1_FREQ;
+#elif TIMER1_FREQ > (F_CPU_8 / 65536)
+    TCCR1B = _BV(WGM12) | 2; // ctc mode up to OCR1A, clk = sysclk / 1
+    OCR1A = F_CPU_8 / TIMER1_FREQ;
+#elif TIMER1_FREQ > (F_CPU_64 / 65536)
+    TCCR1B = _BV(WGM12) | 3; // ctc mode up to OCR1A, clk = sysclk / 1
+    OCR1A = F_CPU_64 / TIMER1_FREQ;
+#elif TIMER1_FREQ > (F_CPU_256 / 65536)
+    TCCR1B = _BV(WGM12) | 4; // ctc mode up to OCR1A, clk = sysclk / 1
+    OCR1A = F_CPU_256 / TIMER1_FREQ;
+#elif TIMER1_FREQ > (F_CPU_1024 / 65536)
+    TCCR1B = _BV(WGM12) | 5; // ctc mode up to OCR1A, clk = sysclk / 1
+    OCR1A = F_CPU_1024 / TIMER1_FREQ;
 #else
+#   error TIMER1 too low
+#endif
+    TCNT1 = 0; // timer reset
+    TIMSK1 = _BV(OCIE1A);
 
-void
-disp_phase(void) {
-    if (phase < 8) {
-        lcd_cmd(HD44780_CMD_SET_DDRAM_ADDR | 0x0f);
-        lcd_data(phase);
-        lcd_cmd(HD44780_CMD_SET_DDRAM_ADDR | 0x4f);
-        lcd_data(' ');
-    }
-    else if (phase < 16) {
-        lcd_cmd(HD44780_CMD_SET_DDRAM_ADDR | 0x0f);
-        lcd_data(' ');
-        lcd_cmd(HD44780_CMD_SET_DDRAM_ADDR | 0x4f);
-        lcd_data(phase - 8);
-    }
-    else if (phase < 23) {
-        lcd_cmd(HD44780_CMD_SET_DDRAM_ADDR | 0x0f);
-        lcd_data(' ');
-        lcd_cmd(HD44780_CMD_SET_DDRAM_ADDR | 0x4f);
-        lcd_data(22 - phase);
-    }
-    else if (phase < 30) {
-        lcd_cmd(HD44780_CMD_SET_DDRAM_ADDR | 0x0f);
-        lcd_data(30 - phase);
-        lcd_cmd(HD44780_CMD_SET_DDRAM_ADDR | 0x4f);
-        lcd_data(' ');
-    }
-    phase = (phase + 1) % 30;
-}
+    DDRC |= _BV(PC5);
 
-int
-main(void) {
-    DDRD |= 0x40;
-    PORTD |= 0x40;
+    set_sleep_mode(SLEEP_MODE_IDLE);
+    lcd_cmd(HD44780_CMD_CLEAR_DISPLAY);
+    printf("lcd ok");
 
-    sei();
-    lcd_init();
-    lcd_setup();
     sht11_init();
+    lcd_cmd(HD44780_CMD_SET_DDRAM_ADDR);
+    printf("sensor ok");
 
+    bt_serial_init();
+    //bt_serial_set_recv_buffer(resp, sizeof(resp), &respptr);
+    //bt_serial_send(req, sizeof(req));
+    lcd_cmd(HD44780_CMD_SET_DDRAM_ADDR);
+    printf("serial ok");
+
+    bt_serial_recv(resp, 1);
     while (1) {
-        PORTD ^= 0x40;
+        sleep_mode();
+
+        // ---- sensor code begins ----
         do {
             while (sht11_send_byte(SHT11_CMD_GET_TEMP))
                 ;
@@ -129,23 +111,25 @@ main(void) {
         t = -40.1 + 0.01 * SOt;
         rhlin = -2.0468 + (0.0367 * SOrh) + (-1.5955e-6 * SOrh * SOrh);
         rhtrue = rhlin + (t - 25)*(1e-2 + 8e-5 * SOrh);
-        dew_gamma = DEW_A * t / (DEW_B + t) + log(rhtrue / 100.0);
-        tdew = DEW_B * dew_gamma / (DEW_A - dew_gamma);
+        // ---- sensor code ends ----
 
-#ifdef SHT11TEST
-        lcd_cmd(HD44780_CMD_SET_DDRAM_ADDR | 0x00);
-        printf("t=%5u", SOt);
-        lcd_cmd(HD44780_CMD_SET_DDRAM_ADDR | 0x40);
-        printf("h=%5u", SOrh);
-#else
-        lcd_cmd(HD44780_CMD_SET_DDRAM_ADDR | 0x00);
-        printf("%3.2f\xb2""C %3.2f%%", t, rhtrue);
+        // ----
+        PORTC ^= _BV(PC5);
+        progress = (progress + 1) & 0x03;
+        lcd_cmd(HD44780_CMD_SET_DDRAM_ADDR);
+        printf("%3.2f\xb2""C %3.2f%% %c", t, rhtrue, progress_char[progress]); // degree sign is sometimes \xdf, depends on the display
 
-        lcd_cmd(HD44780_CMD_SET_DDRAM_ADDR | 0x40);
-        printf("dew: %3.2f\xb2""C", tdew);
-#endif
-        disp_phase();
+        if (bt_serial_send_len == 0) {
+            sprintf(sbuf, "%3.2f'C %3.2f%% %c\r\n", t, rhtrue, progress_char[progress]); // degree sign is sometimes \xdf, depends on the display
+            bt_serial_send(sbuf, 18);
+        }
+
+        if (bt_serial_recv_len == 0) {
+            lcd_cmd(HD44780_CMD_SET_DDRAM_ADDR + 0x40 + recvcount);
+            lcd_data(resp[0]);
+            recvcount = (recvcount + 1) & 0x0f;
+            bt_serial_recv(resp, 1);
+        }
     }
-    return(0);
+    return 0;
 }
-#endif
